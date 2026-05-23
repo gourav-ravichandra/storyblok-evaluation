@@ -24,6 +24,19 @@ const nextConfig: NextConfig = {
       {protocol: 'https', hostname: '**.hubspotusercontent-eu1.net'},
     ],
   },
+  async headers() {
+    return [
+      {
+        source: '/case-studies/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors 'self' https://app.storyblok.com https://*.storyblok.com",
+          },
+        ],
+      },
+    ]
+  },
 }
 
 export default nextConfig

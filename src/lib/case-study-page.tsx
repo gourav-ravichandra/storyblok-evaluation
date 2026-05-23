@@ -44,46 +44,49 @@ export function CaseStudyPageView({caseStudy, preview, rawContent, storyId}: Pag
   const rootBlok = preview ? rawContent : null
   const statBloks = blokArray(rootBlok?.stats)
   const quoteBlok = firstBlok(rootBlok?.customer_quote)
+  const rootEditable = rootBlok ? editableBlok(rootBlok) : {}
 
   return (
     <>
       {preview && storyId != null && <StoryblokBridgeLoader storyId={storyId} />}
       {preview && <StoryblokPreviewBar />}
 
-      <CaseStudyHero
-        caseStudy={caseStudy}
-        editable={
-          rootBlok
-            ? {
-                featuredImage: editableBlok(rootBlok),
-                title: editableBlok(rootBlok),
-                excerpt: editableBlok(rootBlok),
-                companyName: editableBlok(rootBlok),
-              }
-            : undefined
-        }
-      />
-
-      {caseStudy.stats.length > 0 && (
-        <CaseStudyStats
-          stats={caseStudy.stats}
-          editable={statBloks.map((blok) => editableBlok(blok))}
+      <main {...rootEditable}>
+        <CaseStudyHero
+          caseStudy={caseStudy}
+          editable={
+            rootBlok
+              ? {
+                  featuredImage: rootEditable,
+                  title: rootEditable,
+                  excerpt: rootEditable,
+                  companyName: rootEditable,
+                }
+              : undefined
+          }
         />
-      )}
 
-      <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="prose prose-slate max-w-none" {...(rootBlok ? editableBlok(rootBlok) : {})}>
-          <PortableTextRenderer value={caseStudy.body} />
-        </div>
-        {caseStudy.customerQuote && (
-          <div className="mt-12">
-            <CaseStudyQuote
-              quote={caseStudy.customerQuote}
-              editable={quoteBlok ? editableBlok(quoteBlok) : undefined}
-            />
-          </div>
+        {caseStudy.stats.length > 0 && (
+          <CaseStudyStats
+            stats={caseStudy.stats}
+            editable={statBloks.map((blok) => editableBlok(blok))}
+          />
         )}
-      </article>
+
+        <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+          <div className="prose prose-slate max-w-none" {...rootEditable}>
+            <PortableTextRenderer value={caseStudy.body} />
+          </div>
+          {caseStudy.customerQuote && (
+            <div className="mt-12">
+              <CaseStudyQuote
+                quote={caseStudy.customerQuote}
+                editable={quoteBlok ? editableBlok(quoteBlok) : undefined}
+              />
+            </div>
+          )}
+        </article>
+      </main>
     </>
   )
 }

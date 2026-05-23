@@ -45,11 +45,7 @@ The app supports Storyblok's Visual Editor — similar to Sanity Presentation. W
 
 ### Vercel env
 
-Add to your Vercel project (required for the bridge iframe in production):
-
-```
-NEXT_PUBLIC_SITE_URL=https://storyblok-evaluation.vercel.app
-```
+No extra env vars are required for the standard Storyblok editor at `app.storyblok.com`. Do **not** set `NEXT_PUBLIC_SITE_URL` unless you white-label the Storyblok app on your own domain.
 
 ### Local visual editing
 
