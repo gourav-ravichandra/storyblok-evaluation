@@ -40,7 +40,10 @@ export interface CaseStudy {
 
 export interface ContentAdapter {
   getAllCaseStudies(options?: {language?: string}): Promise<CaseStudy[]>
-  getCaseStudyBySlug(slug: string, options?: {language?: string}): Promise<CaseStudy | null>
+  getCaseStudyBySlug(
+    slug: string,
+    options?: {language?: string; previewDraft?: boolean},
+  ): Promise<CaseStudy | null>
   getAllSlugs(options?: {
     language?: string
     perspective?: 'published' | 'previewDrafts'

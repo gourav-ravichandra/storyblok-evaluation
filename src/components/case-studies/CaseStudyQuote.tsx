@@ -1,12 +1,22 @@
+import type {EditableAttrs} from '@/lib/storyblok-preview'
+
 interface Quote {
   quote: string
   attributionName: string
   attributionRole: string
 }
 
-export function CaseStudyQuote({quote}: {quote: Quote}) {
+interface Props {
+  quote: Quote
+  editable?: EditableAttrs
+}
+
+export function CaseStudyQuote({quote, editable}: Props) {
   return (
-    <blockquote className="relative rounded-2xl border border-blue-100 bg-blue-50/60 p-8">
+    <blockquote
+      className="relative rounded-2xl border border-blue-100 bg-blue-50/60 p-8"
+      {...(editable ?? {})}
+    >
       <span
         aria-hidden
         className="absolute left-6 top-4 text-6xl leading-none text-blue-200"

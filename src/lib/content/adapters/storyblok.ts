@@ -103,14 +103,28 @@ async function fetchAllStoriesUnderFolder(
 async function getCaseStudyBySlugInternal(
   slug: string,
   language: Language,
-  previewDraft = false,
+  previewDraft?: boolean,
 ): Promise<CaseStudy | null> {
+  const fullSlug = `${FOLDER_PREFIX}/${language}/${slug}`
+  const useDraft = previewDraft ?? false
+  const story = await fetchStoryBySlug(fullSlug, {
+    version: useDraft ? 'draft' : VERSION,
+  })
+  if (!story) return null
+  return mapStoryblokToCaseStudy(story as unknown as StoryblokStory)
+}
+
+/** Raw Storyblok story for Visual Editor bridge + storyblokEditable attributes. */
+export async function fetchRawStoryBySlug(
+  slug: string,
+  language: Language = 'en',
+  previewDraft = true,
+): Promise<StoryblokStory | null> {
   const fullSlug = `${FOLDER_PREFIX}/${language}/${slug}`
   const story = await fetchStoryBySlug(fullSlug, {
     version: previewDraft ? 'draft' : VERSION,
   })
-  if (!story) return null
-  return mapStoryblokToCaseStudy(story as unknown as StoryblokStory)
+  return story ? (story as unknown as StoryblokStory) : null
 }
 
 async function getAllCaseStudiesInternal(
@@ -128,7 +142,11 @@ async function getAllCaseStudiesInternal(
 
 export const storyblokAdapter: ContentAdapter = {
   async getCaseStudyBySlug(slug, options) {
-    return getCaseStudyBySlugInternal(slug, parseLanguage(options?.language))
+    return getCaseStudyBySlugInternal(
+      slug,
+      parseLanguage(options?.language),
+      options?.previewDraft,
+    )
   },
 
   async getAllCaseStudies(options) {

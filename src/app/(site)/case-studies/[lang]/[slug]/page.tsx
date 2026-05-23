@@ -9,14 +9,13 @@ import {
   renderCaseStudyPage,
   type CaseStudyLanguage,
 } from '@/lib/case-study-page'
+import {isStoryblokPreview, type SearchParams} from '@/lib/storyblok-preview'
 
 export const revalidate = 60
 
 /**
  * Storyblok preview URLs use the story full_slug path:
  *   /case-studies/en/{slug}
- * Public site URLs omit the language folder:
- *   /case-studies/{slug}
  */
 export async function generateStaticParams() {
   const languages: CaseStudyLanguage[] = ['en', 'es', 'fr']
@@ -34,13 +33,16 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{lang: string; slug: string}>
+  searchParams: Promise<SearchParams>
 }): Promise<Metadata> {
   const {lang, slug} = await params
   if (!isCaseStudyLanguage(lang)) return {}
 
-  const caseStudy = await fetchCaseStudy(slug, lang)
+  const preview = isStoryblokPreview(await searchParams)
+  const caseStudy = await fetchCaseStudy(slug, lang, preview)
   if (!caseStudy) return {}
 
   return {
@@ -53,10 +55,12 @@ export async function generateMetadata({
 
 export default async function CaseStudyByLanguagePage({
   params,
+  searchParams,
 }: {
   params: Promise<{lang: string; slug: string}>
+  searchParams: Promise<SearchParams>
 }) {
   const {lang, slug} = await params
   if (!isCaseStudyLanguage(lang)) notFound()
-  return renderCaseStudyPage(slug, lang)
+  return renderCaseStudyPage(slug, lang, await searchParams)
 }

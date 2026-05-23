@@ -18,3 +18,8 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* Storyblok Visual Editor highlights editable regions in the preview iframe */
+html[data-storyblok-preview='true'] [data-blok-c] {
+  cursor: pointer;
+}
