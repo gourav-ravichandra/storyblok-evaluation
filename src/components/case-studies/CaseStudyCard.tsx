@@ -13,7 +13,7 @@ export function CaseStudyCard({caseStudy}: {caseStudy: CaseStudy}) {
 
   return (
     <Link
-      href={`/case-studies/${caseStudy.slug}`}
+      href={`/case-studies/en/${caseStudy.slug}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-slate-300 hover:shadow-lg"
     >
       <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">

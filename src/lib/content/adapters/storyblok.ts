@@ -1,44 +1,19 @@
 /**
  * Storyblok CDN adapter for the Modulr Resource Centre Next.js app.
+ * Uses the shared `getStoryblokApi` instance from `@/lib/storyblok`.
  */
-
-import StoryblokClient from 'storyblok-js-client'
 
 import type {CaseStudy, ContentAdapter} from '../types'
 import {mapStoryblokToCaseStudy, type StoryblokStory} from './map-story'
-
-const TOKEN = process.env.NEXT_PUBLIC_STORYBLOK_PREVIEW_TOKEN
-const VERSION = (process.env.NEXT_PUBLIC_STORYBLOK_VERSION ?? 'published') as
-  | 'published'
-  | 'draft'
-const REGION = (process.env.STORYBLOK_REGION ?? 'eu') as 'eu' | 'us' | 'ca' | 'ap' | 'cn'
-
-let _client: StoryblokClient | null = null
-
-function getClient(): StoryblokClient {
-  if (_client) return _client
-  if (!TOKEN) {
-    throw new Error(
-      'NEXT_PUBLIC_STORYBLOK_PREVIEW_TOKEN is missing. Set it in web/.env.local.',
-    )
-  }
-  _client = new StoryblokClient({
-    accessToken: TOKEN,
-    region: REGION,
-    cache: {clear: 'auto', type: 'memory'},
-  })
-  return _client
-}
-
-const FOLDER_PREFIX = 'case-studies'
-
-const CASE_STUDY_RESOLVE_RELATIONS = [
-  'case_study.industries',
-  'case_study.regions',
-  'case_study.use_cases',
-  'case_study.products_used',
-  'case_study.author',
-].join(',')
+import {
+  defaultStoryblokVersion,
+  storyblokFullSlug,
+  STORYBLOK_FOLDER_PREFIX,
+} from '@/lib/storyblok'
+import {
+  fetchStoryblokStoriesInFolder,
+  fetchStoryblokStoryByFullSlug,
+} from '@/lib/storyblok-fetch'
 
 type Language = 'en' | 'es' | 'fr'
 
@@ -47,57 +22,8 @@ function parseLanguage(language?: string): Language {
   return 'en'
 }
 
-interface FetchOptions {
-  version?: 'published' | 'draft'
-}
-
-async function fetchStoryBySlug(
-  fullSlug: string,
-  options: FetchOptions = {},
-): Promise<Record<string, unknown> | null> {
-  try {
-    const {data} = await getClient().get(`cdn/stories/${fullSlug}`, {
-      version: options.version ?? VERSION,
-      resolve_relations: CASE_STUDY_RESOLVE_RELATIONS,
-      cv: Math.floor(Date.now() / 1000),
-    })
-    return (data as {story?: Record<string, unknown>})?.story ?? null
-  } catch (err: unknown) {
-    const error = err as {status?: number; response?: {status?: number}}
-    if (error.status === 404 || error.response?.status === 404) return null
-    throw err
-  }
-}
-
-async function fetchAllStoriesUnderFolder(
-  folderPath: string,
-  options: FetchOptions = {},
-): Promise<Record<string, unknown>[]> {
-  const stories: Record<string, unknown>[] = []
-  let page = 1
-  const perPage = 100
-
-  while (true) {
-    const {data} = await getClient().get('cdn/stories', {
-      starts_with: folderPath,
-      version: options.version ?? VERSION,
-      resolve_relations: CASE_STUDY_RESOLVE_RELATIONS,
-      filter_query: {
-        component: {in: 'case_study'},
-      },
-      per_page: perPage,
-      page,
-      cv: Math.floor(Date.now() / 1000),
-      sort_by: 'first_published_at:desc',
-    })
-
-    const batch = (data as {stories?: Record<string, unknown>[]})?.stories ?? []
-    stories.push(...batch)
-    if (batch.length < perPage) break
-    page += 1
-  }
-
-  return stories
+function versionForPreview(previewDraft?: boolean): 'draft' | 'published' {
+  return previewDraft ? 'draft' : defaultStoryblokVersion()
 }
 
 async function getCaseStudyBySlugInternal(
@@ -105,38 +31,34 @@ async function getCaseStudyBySlugInternal(
   language: Language,
   previewDraft?: boolean,
 ): Promise<CaseStudy | null> {
-  const fullSlug = `${FOLDER_PREFIX}/${language}/${slug}`
-  const useDraft = previewDraft ?? false
-  const story = await fetchStoryBySlug(fullSlug, {
-    version: useDraft ? 'draft' : VERSION,
-  })
+  const story = await fetchStoryblokStoryByFullSlug(
+    storyblokFullSlug(language, slug),
+    versionForPreview(previewDraft),
+  )
   if (!story) return null
-  return mapStoryblokToCaseStudy(story as unknown as StoryblokStory)
+  return mapStoryblokToCaseStudy(story)
 }
 
-/** Raw Storyblok story for Visual Editor bridge + storyblokEditable attributes. */
+/** Raw Storyblok story for Visual Editor (`storyblokEditable` + live editing). */
 export async function fetchRawStoryBySlug(
   slug: string,
   language: Language = 'en',
-  previewDraft = true,
+  version: 'draft' | 'published' = 'draft',
 ): Promise<StoryblokStory | null> {
-  const fullSlug = `${FOLDER_PREFIX}/${language}/${slug}`
-  const story = await fetchStoryBySlug(fullSlug, {
-    version: previewDraft ? 'draft' : VERSION,
-  })
-  return story ? (story as unknown as StoryblokStory) : null
+  return fetchStoryblokStoryByFullSlug(storyblokFullSlug(language, slug), version)
 }
 
 async function getAllCaseStudiesInternal(
   language: Language,
   previewDraft = false,
 ): Promise<CaseStudy[]> {
-  const folderPath = `${FOLDER_PREFIX}/${language}`
-  const stories = await fetchAllStoriesUnderFolder(folderPath, {
-    version: previewDraft ? 'draft' : VERSION,
-  })
+  const folderPath = `${STORYBLOK_FOLDER_PREFIX}/${language}`
+  const stories = await fetchStoryblokStoriesInFolder(
+    folderPath,
+    versionForPreview(previewDraft),
+  )
   return stories
-    .map((story) => mapStoryblokToCaseStudy(story as unknown as StoryblokStory))
+    .map((story) => mapStoryblokToCaseStudy(story))
     .filter((cs): cs is CaseStudy => cs != null)
 }
 
@@ -155,10 +77,11 @@ export const storyblokAdapter: ContentAdapter = {
 
   async getAllSlugs(options) {
     const language = parseLanguage(options?.language)
-    const folderPath = `${FOLDER_PREFIX}/${language}`
-    const stories = await fetchAllStoriesUnderFolder(folderPath, {
-      version: options?.perspective === 'previewDrafts' ? 'draft' : VERSION,
-    })
+    const folderPath = `${STORYBLOK_FOLDER_PREFIX}/${language}`
+    const stories = await fetchStoryblokStoriesInFolder(
+      folderPath,
+      options?.perspective === 'previewDrafts' ? 'draft' : defaultStoryblokVersion(),
+    )
     return stories.map((s) => {
       const fullSlug = String(s.full_slug ?? '')
       const parts = fullSlug.split('/')

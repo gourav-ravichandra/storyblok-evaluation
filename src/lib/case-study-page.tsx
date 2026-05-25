@@ -1,19 +1,17 @@
 import {notFound} from 'next/navigation'
 import type {Metadata} from 'next'
+import {StoryblokStory} from '@storyblok/react/rsc'
+import type {ISbStoryData} from '@storyblok/js'
 
-import {CaseStudyHero} from '@/components/case-studies/CaseStudyHero'
-import {CaseStudyQuote} from '@/components/case-studies/CaseStudyQuote'
-import {CaseStudyStats} from '@/components/case-studies/CaseStudyStats'
-import {PortableTextRenderer} from '@/components/case-studies/PortableTextRenderer'
-import {StoryblokBridgeLoader} from '@/components/storyblok/StoryblokBridgeLoader'
 import {StoryblokPreviewBar} from '@/components/storyblok/StoryblokPreviewBar'
 import {content} from '@/lib/content/adapter'
 import {fetchRawStoryBySlug} from '@/lib/content/adapters/storyblok'
 import type {CaseStudy} from '@/lib/content/types'
+import {mapStoryblokToCaseStudy} from '@/lib/content/adapters/map-story'
+import {STORYBLOK_BRIDGE_OPTIONS} from '@/lib/storyblok'
 import {
-  blokArray,
-  editableBlok,
-  firstBlok,
+  consumeCachedStory,
+  getStoryblokVersion,
   isStoryblokPreview,
   type SearchParams,
 } from '@/lib/storyblok-preview'
@@ -33,85 +31,31 @@ export async function fetchCaseStudy(
   return content.getCaseStudyBySlug(slug, {language, previewDraft})
 }
 
-interface PageViewProps {
-  caseStudy: CaseStudy
-  preview: boolean
-  rawContent?: Record<string, unknown> | null
-  storyId?: number
-}
-
-export function CaseStudyPageView({caseStudy, preview, rawContent, storyId}: PageViewProps) {
-  const rootBlok = preview ? rawContent : null
-  const statBloks = blokArray(rootBlok?.stats)
-  const quoteBlok = firstBlok(rootBlok?.customer_quote)
-  const rootEditable = rootBlok ? editableBlok(rootBlok) : {}
-
-  return (
-    <>
-      {preview && storyId != null && <StoryblokBridgeLoader storyId={storyId} />}
-      {preview && <StoryblokPreviewBar />}
-
-      <main {...rootEditable}>
-        <CaseStudyHero
-          caseStudy={caseStudy}
-          editable={
-            rootBlok
-              ? {
-                  featuredImage: rootEditable,
-                  title: rootEditable,
-                  excerpt: rootEditable,
-                  companyName: rootEditable,
-                }
-              : undefined
-          }
-        />
-
-        {caseStudy.stats.length > 0 && (
-          <CaseStudyStats
-            stats={caseStudy.stats}
-            editable={statBloks.map((blok) => editableBlok(blok))}
-          />
-        )}
-
-        <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-          <div className="prose prose-slate max-w-none" {...rootEditable}>
-            <PortableTextRenderer value={caseStudy.body} />
-          </div>
-          {caseStudy.customerQuote && (
-            <div className="mt-12">
-              <CaseStudyQuote
-                quote={caseStudy.customerQuote}
-                editable={quoteBlok ? editableBlok(quoteBlok) : undefined}
-              />
-            </div>
-          )}
-        </article>
-      </main>
-    </>
-  )
-}
-
+/**
+ * Renders a case study via registered Storyblok components (`StoryblokStory`).
+ * Enables per-blok and per-field click-to-edit in the Visual Editor.
+ */
 export async function renderCaseStudyPage(
   slug: string,
   language: CaseStudyLanguage = 'en',
   searchParams?: SearchParams,
 ): Promise<React.ReactNode> {
   const preview = isStoryblokPreview(searchParams)
+  const version = getStoryblokVersion(searchParams)
 
-  const [caseStudy, rawStory] = await Promise.all([
-    fetchCaseStudy(slug, language, preview),
-    preview ? fetchRawStoryBySlug(slug, language, true) : Promise.resolve(null),
-  ])
+  const raw = await fetchRawStoryBySlug(slug, language, version)
+  if (!raw) notFound()
 
-  if (!caseStudy) notFound()
+  const story = consumeCachedStory(raw)
 
   return (
-    <CaseStudyPageView
-      caseStudy={caseStudy}
-      preview={preview}
-      rawContent={rawStory?.content ?? null}
-      storyId={rawStory?.id}
-    />
+    <>
+      {preview && <StoryblokPreviewBar />}
+      <StoryblokStory
+        story={story as unknown as ISbStoryData}
+        bridgeOptions={preview ? STORYBLOK_BRIDGE_OPTIONS : undefined}
+      />
+    </>
   )
 }
 

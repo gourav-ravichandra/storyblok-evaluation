@@ -9,8 +9,9 @@ import {
   renderCaseStudyPage,
   type CaseStudyLanguage,
 } from '@/lib/case-study-page'
-import {isStoryblokPreview, type SearchParams} from '@/lib/storyblok-preview'
+import {getStoryblokVersion, isStoryblokPreview, type SearchParams} from '@/lib/storyblok-preview'
 
+/** Preview uses `searchParams` (dynamic). Published pages can still be revalidated. */
 export const revalidate = 60
 
 /**
@@ -41,14 +42,16 @@ export async function generateMetadata({
   const {lang, slug} = await params
   if (!isCaseStudyLanguage(lang)) return {}
 
-  const preview = isStoryblokPreview(await searchParams)
-  const caseStudy = await fetchCaseStudy(slug, lang, preview)
+  const resolvedSearchParams = await searchParams
+  const preview = isStoryblokPreview(resolvedSearchParams)
+  const version = getStoryblokVersion(resolvedSearchParams)
+  const caseStudy = await fetchCaseStudy(slug, lang, preview || version === 'draft')
   if (!caseStudy) return {}
 
   return {
     ...buildCaseStudyMetadata(caseStudy),
     alternates: {
-      canonical: `/case-studies/${slug}`,
+      canonical: `/case-studies/${lang}/${slug}`,
     },
   }
 }
